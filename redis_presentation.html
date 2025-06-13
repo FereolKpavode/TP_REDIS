@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Étude et Implémentation des Architectures Redis</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .presentation-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .slide {
+            width: 90%;
+            max-width: 1200px;
+            height: 80vh;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 60px;
+            display: none;
+            overflow-y: auto;
+            position: relative;
+            animation: slideIn 0.5s ease-out;
+        }
+
+        .slide.active {
+            display: block;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(100px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        h1 {
+            color: #2c3e50;
+            font-size: 2.5em;
+            text-align: center;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            color: #34495e;
+            font-size: 2em;
+            margin-bottom: 25px;
+            border-bottom: 3px solid #e74c3c;
+            padding-bottom: 10px;
+        }
+
+        h3 {
+            color: #2980b9;
+            font-size: 1.4em;
+            margin: 20px 0 15px 0;
+        }
+
+        p, li {
+            color: #555;
+            font-size: 1.1em;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        ul {
+            padding-left: 30px;
+        }
+
+        .highlight {
+            background: linear-gradient(120deg, #ffecd2 0%, #fcb69f 100%);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 5px solid #e74c3c;
+        }
+
+        .code-block {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            margin: 20px 0;
+            overflow-x: auto;
+        }
+
+        .navigation {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            display: flex;
+            gap: 15px;
+            z-index: 1000;
+        }
+
+        .nav-btn {
+            padding: 12px 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            color: #2c3e50;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-btn:hover {
+            background: #3498db;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .slide-counter {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 20px;
+            border-radius: 20px;
+            color: #2c3e50;
+            font-weight: bold;
+            z-index: 1000;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 20px 0;
+        }
+
+        .card {
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .comparison-table th {
+            background: #34495e;
+            color: white;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .comparison-table td {
+            padding: 12px 15px;
+            text-align: center;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        .comparison-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .author-info {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px;
+            background: rgba(52, 73, 94, 0.1);
+            border-radius: 10px;
+        }
+
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 4px;
+            background: #e74c3c;
+            transition: width 0.3s ease;
+            z-index: 1001;
+        }
+
+        .architecture-diagram {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 30px 0;
+            gap: 20px;
+        }
+
+        .node {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .master { background: #e74c3c; }
+        .replica { background: #3498db; }
+        .cluster { background: #27ae60; }
+
+        .arrow {
+            font-size: 2em;
+            color: #7f8c8d;
+        }
+    </style>
+</head>
+<body>
+    <div class="progress-bar" id="progressBar"></div>
+    
+    <div class="presentation-container">
+        <!-- Slide 1: Page de titre -->
+        <div class="slide active">
+            <h1>Étude et Implémentation des Architectures Redis</h1>
+            <div class="author-info">
+                <h3>Sègbédé Stanislas Féréol KPAVODE</h3>
+                <p><strong>Formation :</strong> Base de Données NoSQL</p>
+                <p><strong>Date :</strong> Juin 2025</p>
+                <p><strong>Sujet :</strong> Étude comparative et implémentation pratique des architectures Redis</p>
+            </div>
+            <div class="highlight">
+                <p><strong>Objectif :</strong> Explorer les différentes architectures Redis depuis la configuration simple jusqu'aux déploiements distribués complexes</p>
+            </div>
+        </div>
+
+        <!-- Slide 2: Plan de présentation -->
+        <div class="slide">
+            <h2>Plan de Présentation</h2>
+            <div class="grid">
+                <div class="card">
+                    <h3>🎯 Contexte & Objectifs</h3>
+                    <p>Problématique et objectifs du projet</p>
+                </div>
+                <div class="card">
+                    <h3>📚 Fondements Théoriques</h3>
+                    <p>Principes Redis et types d'architectures</p>
+                </div>
+                <div class="card">
+                    <h3>🏗️ Implémentations</h3>
+                    <p>Architecture simple, réplication, clustering</p>
+                </div>
+                <div class="card">
+                    <h3>📊 Analyse Comparative</h3>
+                    <p>Performances et cas d'usage</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 3: Contexte et Objectifs -->
+        <div class="slide">
+            <h2>Contexte et Objectifs</h2>
+            <div class="highlight">
+                <h3>Problématique</h3>
+                <p>Les bases de données traditionnelles montrent leurs limites face aux exigences de rapidité et de scalabilité des applications web haute performance.</p>
+            </div>
+            
+            <h3>Objectifs Principaux</h3>
+            <ul>
+                <li>Comprendre les principes fondamentaux de Redis</li>
+                <li>Implémenter une architecture de réplication Redis</li>
+                <li>Mettre en place un cluster Redis distribué</li>
+                <li>Développer un cas d'usage pratique</li>
+            </ul>
+
+            <h3>Objectifs Techniques</h3>
+            <ul>
+                <li>Maîtriser la configuration sous Windows</li>
+                <li>Utiliser les clients Python pour Redis</li>
+                <li>Analyser les performances</li>
+                <li>Créer une interface utilisateur avec Streamlit</li>
+            </ul>
+        </div>
+
+        <!-- Slide 4: Fondements Redis -->
+        <div class="slide">
+            <h2>Fondements Théoriques - Redis</h2>
+            <div class="highlight">
+                <p><strong>Redis</strong> (Remote Dictionary Server) : Base de données NoSQL clé-valeur fonctionnant entièrement en mémoire</p>
+            </div>
+
+            <h3>Caractéristiques Principales</h3>
+            <div class="grid">
+                <div>
+                    <ul>
+                        <li><strong>Stockage en mémoire</strong> : RAM pour accès ultra-rapides</li>
+                        <li><strong>Structures riches</strong> : Strings, Hashes, Lists, Sets</li>
+                        <li><strong>Persistance optionnelle</strong> : RDB et AOF</li>
+                    </ul>
+                </div>
+                <div>
+                    <ul>
+                        <li><strong>Réplication</strong> : Support maître-esclave</li>
+                        <li><strong>Clustering</strong> : Partitionnement automatique</li>
+                        <li><strong>Multi-base</strong> : 16 bases internes (0-15)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 5: Types d'Architectures -->
+        <div class="slide">
+            <h2>Types d'Architectures Redis</h2>
+            
+            <div class="architecture-diagram">
+                <div class="node master">Simple</div>
+                <div class="arrow">→</div>
+                <div class="node replica">Réplication</div>
+                <div class="arrow">→</div>
+                <div class="node cluster">Clustering</div>
+            </div>
+
+            <div class="grid">
+                <div class="card" style="background: linear-gradient(135deg, #e74c3c, #c0392b);">
+                    <h3>Architecture Simple</h3>
+                    <ul>
+                        <li>Un seul serveur Redis</li>
+                        <li>Parfaite pour développement</li>
+                        <li>Limitations en disponibilité</li>
+                    </ul>
+                </div>
+                <div class="card" style="background: linear-gradient(135deg, #3498db, #2980b9);">
+                    <h3>Réplication</h3>
+                    <ul>
+                        <li>Un maître + plusieurs réplicas</li>
+                        <li>Haute disponibilité en lecture</li>
+                        <li>Tolérance aux pannes limitée</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="card" style="background: linear-gradient(135deg, #27ae60, #229954); margin-top: 20px;">
+                <h3>Clustering</h3>
+                <ul>
+                    <li>Plusieurs nœuds maîtres avec réplication</li>
+                    <li>Partitionnement automatique des données</li>
+                    <li>Haute disponibilité et scalabilité horizontale</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Slide 6: Architecture Simple -->
+        <div class="slide">
+            <h2>Architecture Simple Redis</h2>
+            
+            <h3>Composants Essentiels</h3>
+            <table class="comparison-table">
+                <tr>
+                    <th>Composant</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td>Client</td>
+                    <td>Application envoyant des commandes Redis</td>
+                </tr>
+                <tr>
+                    <td>Serveur</td>
+                    <td>Processus redis-server gérant les données</td>
+                </tr>
+                <tr>
+                    <td>Base de données</td>
+                    <td>16 bases internes indexées de 0 à 15</td>
+                </tr>
+                <tr>
+                    <td>Persistance</td>
+                    <td>Sauvegarde optionnelle sur disque</td>
+                </tr>
+            </table>
+
+            <div class="code-block">
+# Configuration type
+port 6379
+dbfilename dump.rdb
+appendonly yes
+dir ./data
+            </div>
+        </div>
+
+        <!-- Slide 7: Opérations CRUD -->
+        <div class="slide">
+            <h2>Opérations CRUD Redis</h2>
+            
+            <div class="grid">
+                <div>
+                    <h3>Créer/Ajouter</h3>
+                    <div class="code-block">
+r.set("user:1", "John Doe")
+r.hset("panier:1", "article_id", "quantite")
+                    </div>
+                    
+                    <h3>Lire</h3>
+                    <div class="code-block">
+r.get("user:1")
+r.hgetall("panier:1")
+                    </div>
+                </div>
+                <div>
+                    <h3>Mettre à jour</h3>
+                    <div class="code-block">
+r.set("user:1", "Jane Doe")
+r.hincrby("panier:1", "article_id", 1)
+                    </div>
+                    
+                    <h3>Supprimer</h3>
+                    <div class="code-block">
+r.delete("user:1")
+r.hdel("panier:1", "article_id")
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 8: Implémentation Réplication -->
+        <div class="slide">
+            <h2>Implémentation de la Réplication</h2>
+            
+            <div class="highlight">
+                <p><strong>Date d'implémentation :</strong> 7 juin 2025</p>
+            </div>
+
+            <h3>Architecture Mise en Place</h3>
+            <table class="comparison-table">
+                <tr>
+                    <th>Instance</th>
+                    <th>Port</th>
+                    <th>Type</th>
+                    <th>Statut</th>
+                </tr>
+                <tr>
+                    <td>Master</td>
+                    <td>6379</td>
+                    <td>Principal</td>
+                    <td>✅ Fonctionnel</td>
+                </tr>
+                <tr>
+                    <td>Replica 1</td>
+                    <td>6380</td>
+                    <td>Réplique</td>
+                    <td>✅ Synchronisé</td>
+                </tr>
+                <tr>
+                    <td>Replica 2</td>
+                    <td>6381</td>
+                    <td>Réplique</td>
+                    <td>✅ Synchronisé</td>
+                </tr>
+            </table>
+
+            <div class="code-block">
+# Configuration Replica
+port 6380
+replicaof 127.0.0.1 6379
+bind 127.0.0.1
+protected-mode no
+            </div>
+        </div>
+
+        <!-- Slide 9: Clustering Redis -->
+        <div class="slide">
+            <h2>Mise en Œuvre du Clustering</h2>
+            
+            <h3>Architecture du Cluster</h3>
+            <p>3 shards principaux avec réplication pour tolérance aux pannes</p>
+            
+            <table class="comparison-table">
+                <tr>
+                    <th>Nœud</th>
+                    <th>Port</th>
+                    <th>Type</th>
+                </tr>
+                <tr><td>Shard 1</td><td>7001</td><td>Principal</td></tr>
+                <tr><td>Shard 1 réplica</td><td>7002</td><td>Réplica</td></tr>
+                <tr><td>Shard 2</td><td>7003</td><td>Principal</td></tr>
+                <tr><td>Shard 2 réplica</td><td>7004</td><td>Réplica</td></tr>
+                <tr><td>Shard 3</td><td>7005</td><td>Principal</td></tr>
+                <tr><td>Shard 3 réplica</td><td>7006</td><td>Réplica</td></tr>
+            </table>
+
+            <div class="code-block">
+from redis.cluster import RedisCluster, ClusterNode
+startup_nodes = [ClusterNode("127.0.0.1", 7001)]
+rc = RedisCluster(startup_nodes=startup_nodes)
+            </div>
+        </div>
+
+        <!-- Slide 10: Cas d'Usage Panier -->
+        <div class="slide">
+            <h2>Cas d'Usage Pratique : Gestion de Panier</h2>
+            
+            <div class="highlight">
+                <p><strong>Objectif :</strong> Démonstration pratique avec gestion d'un panier d'achat</p>
+            </div>
+
+            <h3>Technologies Utilisées</h3>
+            <div class="grid">
+                <div class="card">
+                    <h3>🗄️ Redis</h3>
+                    <p>Base de données NoSQL en mémoire</p>
+                </div>
+                <div class="card">
+                    <h3>🐍 Python</h3>
+                    <p>Langage de programmation principal</p>
+                </div>
+                <div class="card">
+                    <h3>🌐 Streamlit</h3>
+                    <p>Framework interface graphique web</p>
+                </div>
+                <div class="card">
+                    <h3>📡 Client Redis</h3>
+                    <p>Bibliothèque redis Python</p>
+                </div>
+            </div>
+
+            <h3>Modélisation des Données</h3>
+            <div class="code-block">
+# Structure: panier:user:<user_id>
+# Type: Hash Redis
+# Format: article_id => quantité
+# TTL: 1800 secondes (30 minutes)
+            </div>
+        </div>
+
+        <!-- Slide 11: Analyse Comparative -->
+        <div class="slide">
+            <h2>Analyse Comparative des Architectures</h2>
+            
+            <table class="comparison-table">
+                <tr>
+                    <th>Critère</th>
+                    <th>Architecture Simple</th>
+                    <th>Réplication</th>
+                    <th>Clustering</th>
+                </tr>
+                <tr>
+                    <td><strong>Complexité</strong></td>
+                    <td>Très faible</td>
+                    <td>Moyenne</td>
+                    <td>Élevée</td>
+                </tr>
+                <tr>
+                    <td><strong>Performances</strong></td>
+                    <td>Excellentes</td>
+                    <td>Très bonnes</td>
+                    <td>Bonnes à excellentes</td>
+                </tr>
+                <tr>
+                    <td><strong>Disponibilité</strong></td>
+                    <td>Faible</td>
+                    <td>Moyenne à élevée</td>
+                    <td>Très élevée</td>
+                </tr>
+                <tr>
+                    <td><strong>Scalabilité</strong></td>
+                    <td>Limitée</td>
+                    <td>Limitée (lecture)</td>
+                    <td>Excellente</td>
+                </tr>
+                <tr>
+                    <td><strong>Tolérance aux pannes</strong></td>
+                    <td>Aucune</td>
+                    <td>Partielle</td>
+                    <td>Complète</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Slide 12: Résultats et Performances -->
+        <div class="slide">
+            <h2>Résultats et Performances</h2>
+            
+            <div class="grid">
+                <div class="card" style="background: linear-gradient(135deg, #3498db, #2980b9);">
+                    <h3>Tests de Réplication</h3>
+                    <ul>
+                        <li>Temps de synchronisation : < 1 seconde</li>
+                        <li>Latence de réplication : < 10ms</li>
+                        <li>Taux de succès : 100%</li>
+                        <li>Aucune perte de données</li>
+                    </ul>
+                </div>
+                <div class="card" style="background: linear-gradient(135deg, #27ae60, #229954);">
+                    <h3>Tests de Clustering</h3>
+                    <ul>
+                        <li>Distribution homogène des 100 clés</li>
+                        <li>Latence moyenne : < 5ms</li>
+                        <li>Débit : > 10 000 ops/seconde</li>
+                        <li>Mémoire équilibrée entre nœuds</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card" style="background: linear-gradient(135deg, #e74c3c, #c0392b); margin-top: 20px;">
+                <h3>Cas d'Usage Panier</h3>
+                <ul>
+                    <li>Temps de réponse interface : < 100ms</li>
+                    <li>Gestion TTL : Fonctionnement parfait</li>
+                    <li>Persistance validée sur 30 minutes</li>
+                    <li>Interface intuitive et réactive</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Slide 13: Conclusion -->
+        <div class="slide">
+            <h2>Conclusion et Perspectives</h2>
+            
+            <div class="highlight">
+                <h3>Synthèse des Réalisations</h3>
+                <p>Exploration complète de l'écosystème Redis depuis les concepts fondamentaux jusqu'aux architectures distribuées complexes</p>
+            </div>
+
+            <h3>Acquis Techniques</h3>
+            <ul>
+                <li>Maîtrise des configurations Redis sous Windows</li>
+                <li>Compréhension profonde des mécanismes de réplication</li>
+                <li>Implémentation réussie d'un cluster Redis fonctionnel</li>
+                <li>Développement d'un cas d'usage pratique avec interface web</li>
+            </ul>
+
+            <h3>Perspectives d'Amélioration</h3>
+            <div class="grid">
+                <div>
+                    <h4>Court terme</h4>
+                    <ul>
+                        <li>Authentification dans le cas d'usage</li>
+                        <li>Tests avec volumes importants</li>
+                        <li>Monitoring et alerting</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4>Long terme</h4>
+                    <ul>
+                        <li>Migration vers Linux production</li>
+                        <li>Intégration Docker/Kubernetes</li>
+                        <li>Exploration modules Redis avancés</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 14: Questions -->
+        <div class="slide">
+            <div style="display: flex; align-items: center; justify-content: center; height: 100%; text-align: center;">
+                <div>
+                    <h1 style="font-size: 4em; margin-bottom: 30px;">Questions ?</h1>
+                    <div class="highlight">
+                        <h3>Merci pour votre attention</h3>
+                        <p style="font-size: 1.2em; margin-top: 20px;">
+                            <strong>Sègbédé Stanislas Féréol KPAVODE</strong><br>
+                            Formation Base de Données NoSQL<br>
+                            Juin 2025
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide-counter">
+        <span id="currentSlide">1</span> / <span id="totalSlides">14</span>
+    </div>
+
+    <div class="navigation">
+        <button class="nav-btn" onclick="previousSlide()">← Précédent</button>
+        <button class="nav-btn" onclick="nextSlide()">Suivant →</button>
+    </div>
+
+    <script>
+        let currentSlideIndex = 0;
+        const slides = document.querySelectorAll('.slide');
+        const totalSlides = slides.length;
+        
+        document.getElementById('totalSlides').textContent = totalSlides;
+
+        function showSlide(index) {
+            slides.forEach(slide => slide.classList.remove('active'));
+            slides[index].classList.add('active');
+            
+            document.getElementById('currentSlide').textContent = index + 1;
+            
+            // Update progress bar
+            const progressBar = document.getElementById('progressBar');
+            const progress = ((index + 1) / totalSlides) * 100;
+            progressBar.style.width = progress + '%';
+        }
+
+        function nextSlide() {
+            if (currentSlideIndex < totalSlides - 1) {
+                currentSlideIndex++;
+                showSlide(currentSlideIndex);
+            }
+        }
+
+        function previousSlide() {
+            if (currentSlideIndex > 0) {
+                currentSlideIndex--;
+                showSlide(currentSlideIndex);
+            }
+        }
+
+        // Keyboard navigation
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'ArrowRight' || event.key === ' ') {
+                event.preventDefault();
+                nextSlide();
+            } else if (event.key === 'ArrowLeft') {
+                event.preventDefault();
+                previousSlide();
+            } else if (event.key === 'Home') {
+                event.preventDefault();
+                currentSlideIndex = 0;
+                showSlide(currentSlideIndex);
+            } else if (event.key === 'End') {
+                event.preventDefault();
+                currentSlideIndex = totalSlides - 1;
+                showSlide(currentSlideIndex);
+            }
+        });
+
+        // Initialize
+        showSlide(0);
+    </script>
+</body>
+</html>
